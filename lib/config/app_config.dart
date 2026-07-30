@@ -1,10 +1,8 @@
 /// Configuración centralizada de la aplicación
 /// Contiene URLs, timeouts y otras constantes de configuración
 class AppConfig {
-  // URLs de la API
-  static const String apiBaseUrl = 'https://dashcampay.com/apipay';
-  static const String localDeviceApiUrl = 'http://localhost:8080';
-  static const int localDeviceApiPort = 8080;
+  // URLs de la API (solo HTTPS; cleartext deshabilitado en Android)
+  static const String apiBaseUrl = 'https://dashcampay.com/apidev';
 
   // Timeouts para peticiones HTTP
   static const Duration connectTimeout = Duration(seconds: 30);

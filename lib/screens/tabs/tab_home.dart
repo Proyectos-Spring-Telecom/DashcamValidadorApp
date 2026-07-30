@@ -265,25 +265,18 @@ class _TripDebitSectionState extends State<_TripDebitSection> {
     super.dispose();
   }
 
-  /// Escucha tarjetas (NFC nativo o lector HTTP local) mientras haya viaje activo.
+  /// Escucha tarjetas por NFC nativo mientras haya viaje activo.
   void _startNfcListenLoop() {
     Future<void> loop() async {
       _nativeNfcEnabled = await NfcService.isNativeNfcEnabled();
       _externalReaderAvailable = await NfcService.isExternalReaderAvailable();
 
-      if (!_nativeNfcEnabled! && !_externalReaderAvailable!) {
+      if (!_nativeNfcEnabled!) {
         appLogger.w(
-          'Sin NFC nativo ni lector HTTP en :${AppConfig.localDeviceApiPort}/nfc/m1',
+          'Sin NFC nativo disponible (lector HTTP en claro deshabilitado)',
         );
         if (mounted) setState(() {});
         return;
-      }
-
-      if (!_nativeNfcEnabled!) {
-        appLogger.i(
-          'NFC nativo deshabilitado; escuchando lector HTTP '
-          '127.0.0.1:${AppConfig.localDeviceApiPort}/nfc/m1',
-        );
       }
 
       if (mounted) setState(() {});
@@ -314,11 +307,8 @@ class _TripDebitSectionState extends State<_TripDebitSection> {
     if (_nativeNfcEnabled == true) {
       return 'Acerca el monedero al teléfono.';
     }
-    if (_externalReaderAvailable == true) {
-      return 'Lector activo: pasa la tarjeta por el lector.';
-    }
-    if (_nativeNfcEnabled == false && _externalReaderAvailable == false) {
-      return 'No se detecta lector de tarjetas. Revisa la conexión del lector.';
+    if (_nativeNfcEnabled == false) {
+      return 'NFC no disponible en este dispositivo.';
     }
     return 'Iniciando lectura de tarjetas…';
   }

@@ -2,6 +2,7 @@ package com.example.dashcam
 
 import android.content.Context
 import android.hardware.camera2.CameraManager
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -15,6 +16,12 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasCamera" -> result.success(deviceHasWorkingCamera())
+                "getAndroidId" -> result.success(
+                    Settings.Secure.getString(
+                        contentResolver,
+                        Settings.Secure.ANDROID_ID,
+                    ),
+                )
                 else -> result.notImplemented()
             }
         }
