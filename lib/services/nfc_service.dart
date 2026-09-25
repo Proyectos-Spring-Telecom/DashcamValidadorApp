@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
@@ -43,17 +44,28 @@ class NfcM1Response {
   String get errorMessage => NfcResultCodes.message(result);
 }
 
-/// Lectura de tarjetas NFC M1 solo por NFC nativo (sin HTTP en claro).
+/// Lectura NFC M1: nativo Android si está activo; si no, lector HTTP en loopback.
 class NfcService {
-  /// Lee una tarjeta NFC M1 con NFC nativo de Android.
+  static final Dio _dio = Dio();
+
+  /// Solo loopback: cleartext permitido únicamente para 127.0.0.1/localhost.
+  static const String _loopbackHost = '127.0.0.1';
+
+  /// Lee una tarjeta NFC M1 (nativo primero, luego HTTP local).
   static Future<NfcM1Response> readM1Card() async {
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final nativeResponse = await _readM1FromAndroidNfc();
-        if (nativeResponse != null) {
+        if (nativeResponse != null && nativeResponse.isSuccess) {
           return nativeResponse;
         }
       }
+
+      final responseLocal = await _readM1FromServer(_loopbackHost);
+      if (responseLocal != null && responseLocal.isSuccess) {
+        return responseLocal;
+      }
+
       return NfcM1Response(result: -1);
     } catch (e) {
       return NfcM1Response(result: -1);
@@ -61,10 +73,6 @@ class NfcService {
   }
 
   /// Lee NFC en Android con una sola sesión de [timeout].
-  ///
-  /// Usa [NfcReaderFlagAndroid.skipNdefCheck] para que tarjetas MIFARE u otras
-  /// sin NDEF no disparen el mensaje del sistema "No supported application for this NFC tag".
-  /// Retorna null solo ante error de plataforma; [-1] si caduca sin tarjeta.
   static Future<NfcM1Response?> _readM1FromAndroidNfc({
     Duration? timeout,
   }) async {
@@ -72,7 +80,6 @@ class NfcService {
     try {
       final availability = await NfcManager.instance.checkAvailability();
       if (availability != NfcAvailability.enabled) {
-        appLogger.w('NFC no disponible en este dispositivo');
         appLogger.d('NFC nativo: no disponible ($availability)');
         return null;
       }
@@ -130,7 +137,6 @@ class NfcService {
       return parsed ?? NfcM1Response(result: -1);
     } catch (e) {
       appLogger.w('Error lectura NFC nativa Android: $e');
-      appLogger.d('Error NFC nativo: $e');
       try {
         await NfcManagerAndroid.instance.disableReaderMode();
       } catch (_) {}
@@ -138,9 +144,42 @@ class NfcService {
     }
   }
 
+  /// Lee tarjeta M1 del servidor HTTP local (solo loopback).
+  static Future<NfcM1Response?> _readM1FromServer(String host) async {
+    final url = 'http://$host:${AppConfig.localDeviceApiPort}/nfc/m1';
+    try {
+      appLogger.d('GET $url');
+      final response = await _dio.get(
+        url,
+        options: Options(
+          sendTimeout: AppConfig.nfcReadTimeout,
+          receiveTimeout: AppConfig.nfcReadTimeout,
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final parsed = NfcM1Response.fromJson(data);
+        appLogger.d(
+          '← $host result=${parsed.result} uid=${parsed.cardUid ?? "(vacío)"}',
+        );
+        return parsed;
+      }
+      appLogger.d('← $host HTTP ${response.statusCode}');
+    } catch (e) {
+      appLogger.d('✗ $host error: $e');
+      return null;
+    }
+    return null;
+  }
+
   /// Espera hasta [timeout] a que se acerque una tarjeta y devuelve el UID (hex).
   static Future<String?> readCardUidWithTimeout({Duration? timeout}) async {
     final limit = timeout ?? AppConfig.nfcCardReadTimeout;
+    final deadline = DateTime.now().add(limit);
+    var poll = 0;
+    String? lastUid;
+    var stableReads = 0;
 
     final nativeEnabled = !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
@@ -151,28 +190,67 @@ class NfcService {
       'Espera tarjeta (${limit.inSeconds}s) | nativo=$nativeEnabled',
     );
 
-    if (!nativeEnabled) {
-      appLogger.w('NFC nativo no disponible; cleartext HTTP deshabilitado');
-      return null;
+    if (nativeEnabled) {
+      appLogger.d('Modo: NFC nativo del teléfono');
+      final r = await _readM1FromAndroidNfc(timeout: limit);
+      if (r != null &&
+          r.isSuccess &&
+          r.cardUid != null &&
+          r.cardUid!.isNotEmpty) {
+        appLogger.d('✓ UID nativo: ${r.cardUid}');
+        return r.cardUid;
+      }
+      appLogger.d(
+        'NFC nativo sin tarjeta (result=${r?.result ?? "null"})',
+      );
+    } else {
+      appLogger.d(
+        'Modo: lector HTTP loopback :${AppConfig.localDeviceApiPort}/nfc/m1',
+      );
     }
 
-    appLogger.d('Modo: NFC nativo del teléfono');
-    final r = await _readM1FromAndroidNfc(timeout: limit);
-    if (r != null &&
-        r.isSuccess &&
-        r.cardUid != null &&
-        r.cardUid!.isNotEmpty) {
-      appLogger.d('✓ UID nativo: ${r.cardUid}');
-      return r.cardUid;
+    while (DateTime.now().isBefore(deadline)) {
+      poll++;
+      final response = await _readM1FromServer(_loopbackHost);
+      if (response != null &&
+          response.isSuccess &&
+          response.cardUid != null &&
+          response.cardUid!.isNotEmpty) {
+        final uid = response.cardUid!;
+        if (uid == lastUid) {
+          stableReads++;
+        } else {
+          lastUid = uid;
+          stableReads = 1;
+        }
+        if (stableReads >= 2) {
+          appLogger.d(
+            '✓ UID lector HTTP (poll #$poll, estable): $uid',
+          );
+          return uid;
+        }
+        appLogger.d('UID candidato (poll #$poll): $uid — confirmando…');
+      } else {
+        lastUid = null;
+        stableReads = 0;
+        if (response != null && response.hasError) {
+          if (response.isRetryable) {
+            appLogger.d('Poll #$poll: ${response.errorMessage}');
+          } else {
+            appLogger.w('Poll #$poll: ${response.errorMessage}');
+          }
+        } else if (response == null) {
+          appLogger.d('Poll #$poll: lector no respondió');
+        }
+      }
+      await Future.delayed(const Duration(milliseconds: 400));
     }
-    appLogger.d(
-      'NFC nativo sin tarjeta (result=${r?.result ?? "null"})',
-    );
+    appLogger.d('Timeout: no se leyó tarjeta en ${limit.inSeconds}s');
     return null;
   }
 
-  /// Lector HTTP externo deshabilitado (cleartext apagado).
-  static Future<bool> isExternalReaderAvailable() async => false;
+  /// Indica si el lector HTTP local (loopback) responde.
+  static Future<bool> isExternalReaderAvailable() => isNfcServerAvailable();
 
   /// NFC nativo habilitado en este dispositivo.
   static Future<bool> isNativeNfcEnabled() async {
@@ -203,16 +281,52 @@ class NfcService {
     return await readM1Card();
   }
 
-  /// Servidor HTTP local NFC deshabilitado (cleartext apagado).
-  static Future<bool> isNfcServerAvailable() async => false;
+  /// Verifica si el servidor NFC en loopback está disponible
+  static Future<bool> isNfcServerAvailable() async {
+    try {
+      return await _checkServerAvailability(_loopbackHost);
+    } catch (e) {
+      return false;
+    }
+  }
 
-  /// Información de capacidades NFC para debug
+  static Future<bool> _checkServerAvailability(String host) async {
+    try {
+      final response = await _dio.get(
+        'http://$host:${AppConfig.localDeviceApiPort}/nfc/m1',
+        options: Options(
+          sendTimeout: AppConfig.nfcReadTimeout,
+          receiveTimeout: AppConfig.nfcReadTimeout,
+        ),
+      );
+      return response.statusCode != null;
+    } catch (e) {
+      // El lector responde con error cuando no hay tarjeta; eso cuenta como disponible.
+      if (e is DioException && e.response != null) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  /// Información del lector para debug
   static Future<Map<String, dynamic>> getServerInfo() async {
-    final native = await isNativeNfcEnabled();
-    return {
-      'nativeNfc': native,
-      'httpReaderEnabled': false,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    };
+    try {
+      final isAvailable = await isNfcServerAvailable();
+      final native = await isNativeNfcEnabled();
+
+      return {
+        'nativeNfc': native,
+        'serverPort': AppConfig.localDeviceApiPort,
+        'serverUrl': AppConfig.localDeviceApiUrl,
+        'isAvailable': isAvailable,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+    } catch (e) {
+      return {
+        'error': e.toString(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+    }
   }
 }
