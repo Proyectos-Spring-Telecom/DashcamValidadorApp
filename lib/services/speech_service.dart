@@ -34,7 +34,7 @@ class SpeechService {
     try {
       await _tts.stop();
       await _tts.speak(text);
-      appLogger.i('TTS: $text');
+      appLogger.i('TTS reproducido');
     } catch (e, st) {
       appLogger.w('Error al reproducir TTS');
     }

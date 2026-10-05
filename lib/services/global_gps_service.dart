@@ -235,7 +235,7 @@ class GlobalGpsService extends ChangeNotifier {
     _lastUpdateTime = now;
     _updateCount++;
 
-    appLogger.d('GPS Update #$_updateCount: Lat=${location.lat}, Lon=${location.lon}, Accuracy=${location.exactitud}m$frequencyInfo');
+    appLogger.d('GPS Update #$_updateCount$frequencyInfo');
 
     _currentLocation = location;
     _errorMessage = null;

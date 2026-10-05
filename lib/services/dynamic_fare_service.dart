@@ -28,7 +28,7 @@ class DynamicFareService extends ChangeNotifier {
   Future<bool> startTrip(String numeroSerieMonedero) async {
     // Verificar si ya existe un viaje activo para este monedero
     if (_activeTrips.containsKey(numeroSerieMonedero)) {
-      appLogger.w('Ya existe un viaje activo para el monedero: $numeroSerieMonedero');
+      appLogger.w('Ya existe un viaje activo para ese monedero');
       return false;
     }
 
@@ -93,7 +93,7 @@ class DynamicFareService extends ChangeNotifier {
     // Iniciar escucha del GPS si no está activa (solo una suscripción para todos los viajes)
     _startListeningToGps();
     
-    appLogger.i('✅ Viaje iniciado para monedero: $numeroSerieMonedero en (${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)})');
+    appLogger.i('Viaje de tarifa dinámica iniciado');
     appLogger.i('✅ Transacción de inicio creada con ID: $transactionId');
     appLogger.i('📡 Escuchando actualizaciones GPS desde globalGpsService para calcular distancia recorrida');
     notifyListeners();
@@ -150,9 +150,7 @@ class DynamicFareService extends ChangeNotifier {
 
     // Distribuir la actualización a todos los viajes activos
     bool hasUpdates = false;
-    for (final entry in _activeTrips.entries) {
-      final monedero = entry.key;
-      final trip = entry.value;
+    for (final trip in _activeTrips.values) {
       
       // Solo actualizar si el viaje está activo
       if (trip.isActive) {
@@ -163,7 +161,7 @@ class DynamicFareService extends ChangeNotifier {
         // Log solo si hay cambio significativo en la distancia
         if (newDistance > previousDistance + 1.0) {
           hasUpdates = true;
-          appLogger.d('📍 GPS Update para $monedero: distancia acumulada=${newDistance.toStringAsFixed(2)}m (+${(newDistance - previousDistance).toStringAsFixed(2)}m)');
+          appLogger.d('GPS del viaje actualizado');
         }
       }
     }
@@ -190,7 +188,7 @@ class DynamicFareService extends ChangeNotifier {
   Future<DynamicFareTrip?> endTrip(String numeroSerieMonedero) async {
     final trip = _activeTrips[numeroSerieMonedero];
     if (trip == null) {
-      appLogger.w('No existe un viaje activo para el monedero: $numeroSerieMonedero');
+      appLogger.w('No existe un viaje activo para ese monedero');
       return null;
     }
 
@@ -256,7 +254,7 @@ class DynamicFareService extends ChangeNotifier {
       appLogger.w('⚠️ No hay ID de transacción para finalizar');
     }
 
-    appLogger.i('✅ Viaje finalizado para monedero: $numeroSerieMonedero');
+    appLogger.i('Viaje de tarifa dinámica finalizado');
     appLogger.i('   - Distancia recorrida: ${trip.distance!.toStringAsFixed(2)} metros');
     appLogger.i('   - Tarifa: \$${trip.fare!.toStringAsFixed(2)}');
 
@@ -287,7 +285,7 @@ class DynamicFareService extends ChangeNotifier {
   bool cancelTrip(String numeroSerieMonedero) {
     final removed = _activeTrips.remove(numeroSerieMonedero);
     if (removed != null) {
-      appLogger.i('Viaje cancelado para monedero: $numeroSerieMonedero');
+      appLogger.i('Viaje de tarifa dinámica cancelado');
       
       // Si no hay más viajes activos, detener la escucha del GPS
       if (_activeTrips.isEmpty) {

@@ -142,7 +142,7 @@ class WalletService {
       final msg = _errorHandler.handleError(e);
       appLogger.e('Error al recargar monedero: $msg');
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
       return RechargeWalletResult(success: false, errorMessage: msg ?? 'Error de conexión');
     } catch (e) {
@@ -275,11 +275,8 @@ class WalletService {
       );
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error débito viaje: $msg');
-      appLogger.d('✗ DioException débito: $msg');
+      appLogger.e('Error débito viaje');
       if (e.response != null) {
-        appLogger.e('Respuesta: ${e.response?.data}');
-        appLogger.d('← ${e.response?.statusCode} ${e.response?.data}');
         final parsed = _parseDebitResponse(e.response?.data, e.response?.statusCode);
         if (parsed != null) return parsed;
       }
@@ -324,7 +321,7 @@ class WalletService {
           return null;
         }
         final passenger = PassengerInfo.fromJson(data);
-        appLogger.i('✅ Información del pasajero obtenida: ${passenger.nombreCompleto} (id: ${passenger.id})');
+        appLogger.i('Información del pasajero obtenida');
         return passenger;
       }
       appLogger.w('Respuesta inesperada al consultar pasajero: ${response.statusCode}');
@@ -378,16 +375,7 @@ class WalletService {
         'numeroSerieDispositivo': deviceId,
       };
 
-      // Log detallado para debugging
-      appLogger.i('📤 Iniciando transacción de débito (inicio de viaje):');
-      appLogger.i('   - controlTransaccion: 1 (inicio de viaje)');
-      appLogger.i('   - Monto: \$${amount.toStringAsFixed(2)} (valor: $montoValue)');
-      appLogger.i('   - LatitudInicial: $lat -> $latRounded');
-      appLogger.i('   - LongitudInicial: $lon -> $lonRounded');
-      appLogger.i('   - FechaHoraInicio: $fechaHora');
-      appLogger.i('   - NumeroSerieMonedero: $numeroSerieMonedero');
-      appLogger.i('   - NumeroSerieDispositivo: $deviceId');
-      appLogger.d('Body completo: $body');
+      appLogger.i('Iniciando transacción de débito');
 
       final response = await _httpService.dio.post(
         AppConfig.endpointDebitTransaction,
@@ -413,7 +401,7 @@ class WalletService {
       
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
       
       return null;
@@ -464,17 +452,7 @@ class WalletService {
         'numeroSerieDispositivo': deviceId,
       };
 
-      // Log detallado para debugging
-      appLogger.i('📤 Finalizando transacción de débito (cierre de viaje):');
-      appLogger.i('   - idTransaccionDebito: $idTransaccionDebito');
-      appLogger.i('   - controlTransaccion: 0 (cierre de viaje)');
-      appLogger.i('   - Monto: \$${amount.toStringAsFixed(2)} (valor: $montoValue)');
-      appLogger.i('   - LatitudFinal: $lat -> $latRounded');
-      appLogger.i('   - LongitudFinal: $lon -> $lonRounded');
-      appLogger.i('   - FechaHoraFinal: $fechaHora');
-      appLogger.i('   - NumeroSerieMonedero: $numeroSerieMonedero');
-      appLogger.i('   - NumeroSerieDispositivo: $deviceId');
-      appLogger.d('Body completo: $body');
+      appLogger.i('Finalizando transacción de débito');
 
       final response = await _httpService.dio.patch(
         AppConfig.endpointDebitTransactionUpdate,
@@ -493,7 +471,7 @@ class WalletService {
       
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
       
       return false;

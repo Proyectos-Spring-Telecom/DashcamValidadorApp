@@ -240,7 +240,7 @@ class _TripDebitSectionState extends State<_TripDebitSection> {
   }
 
   void _onScannerError(MobileScannerException error) {
-    appLogger.w('Error escáner QR: ${error.errorCode} - ${error.errorDetails}');
+    appLogger.w('Error escáner QR: ${error.errorCode}');
     _qrController?.dispose();
     _qrController = null;
     if (_qrDisabled || !mounted) return;

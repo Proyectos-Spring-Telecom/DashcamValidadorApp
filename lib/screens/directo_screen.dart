@@ -98,15 +98,15 @@ class _DirectoScreenState extends State<DirectoScreen> {
     PassengerInfo? passenger;
     // Validar que idPasajero no sea null y sea mayor que 0 (el backend devuelve 0 cuando no hay pasajero)
     if (wallet.idPasajero != null && wallet.idPasajero! > 0) {
-      appLogger.d('Monedero tiene idPasajero: ${wallet.idPasajero}, obteniendo información del pasajero...');
+      appLogger.d('Monedero con pasajero asociado; consultando ficha');
       passenger = await walletService.getPassengerById(wallet.idPasajero!);
       if (passenger != null) {
-        appLogger.i('✅ Información del pasajero obtenida: ${passenger.nombreCompleto}');
+        appLogger.i('Información del pasajero obtenida');
       } else {
-        appLogger.w('⚠️ No se pudo obtener información del pasajero con id: ${wallet.idPasajero}');
+        appLogger.w('No se pudo obtener la información del pasajero');
       }
     } else {
-      appLogger.d('Monedero no tiene idPasajero asociado (idPasajero: ${wallet.idPasajero})');
+      appLogger.d('Monedero sin pasajero asociado');
     }
 
     setState(() {
@@ -120,11 +120,11 @@ class _DirectoScreenState extends State<DirectoScreen> {
         _statusMessage = 'Saldo insuficiente. Saldo actual \$${wallet.saldo.toStringAsFixed(2)}';
         _isProcessing = false;
       });
-      appLogger.w('⚠️ Saldo insuficiente: ${wallet.saldo} < $amount');
+      appLogger.w('Saldo insuficiente para el débito');
       return;
     }
 
-    appLogger.i('💰 Saldo suficiente (${wallet.saldo} >= $amount), iniciando débito...');
+    appLogger.i('Saldo suficiente, iniciando débito');
     final debitResult = await _debitTripTransaction(wallet, uid);
     appLogger.i('💰 Resultado del débito: ${debitResult.success ? "ÉXITO" : "FALLO"}');
     if (!mounted) return;
@@ -134,8 +134,7 @@ class _DirectoScreenState extends State<DirectoScreen> {
       // Preservar la información del pasajero antes de actualizar el estado
       // Usar la variable local 'passenger' que se obtuvo antes del débito
       final passengerToKeep = passenger ?? _passenger;
-      appLogger.d('Preservando información del pasajero después del débito: ${passengerToKeep?.nombreCompleto ?? "ninguno"}');
-      appLogger.d('Valores antes de setState - wallet.idPasajero: ${wallet.idPasajero}, passengerToKeep: ${passengerToKeep?.nombreCompleto ?? "null"}');
+      appLogger.d('Se conserva la ficha del pasajero después del débito');
       
       setState(() {
         _wallet = MonederoInfo(
@@ -156,7 +155,7 @@ class _DirectoScreenState extends State<DirectoScreen> {
       });
       
       // Log después del setState para verificar
-      appLogger.d('Estado después del débito - idPasajero: ${_wallet?.idPasajero}, passenger: ${_passenger?.nombreCompleto ?? "null"}');
+      appLogger.d('Estado del débito actualizado');
     } else {
       setState(() {
         _statusMessage =
@@ -430,10 +429,6 @@ class _DirectoScreenState extends State<DirectoScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // Debug: Log para verificar estado antes de renderizar
-    if (_wallet != null) {
-      appLogger.d('🔍 Build - wallet.idPasajero: ${_wallet!.idPasajero}, passenger: ${_passenger?.nombreCompleto ?? "null"}');
-    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Débito directo'),

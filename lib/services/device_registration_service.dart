@@ -1,15 +1,9 @@
-import '../services/device_service.dart';
 import '../utils/logger.dart';
 
-/// Ya no reasigna el validador en cada login.
-/// La asignación queda en admin (WebApp) / PIN binding. El login solo lee el Android ID.
+/// El login reasigna el camión en el API. Este método ya no hace PATCH.
 class DeviceRegistrationService {
   Future<bool> registerDevice(String userName, int clienteId) async {
-    final validadorId = await DeviceService.getDeviceId();
-    appLogger.i(
-      'Login sin PATCH /usuarios/actualizar/validador. '
-      'Usuario=$userName cliente=$clienteId deviceId=$validadorId',
-    );
+    appLogger.i('Login sin PATCH de validador');
     return true;
   }
 

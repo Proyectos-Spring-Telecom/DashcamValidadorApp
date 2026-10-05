@@ -46,10 +46,10 @@ class TurnService {
         if (numeroSerieValidador != null && numeroSerieValidador.isNotEmpty) {
           // Guardar el valor obtenido del dispositivo para futuras operaciones
           await _storage.saveNumeroSerieValidador(numeroSerieValidador);
-          appLogger.i('NumeroSerieValidador obtenido del dispositivo y guardado: $numeroSerieValidador');
+          appLogger.i('NumeroSerieValidador obtenido del dispositivo y guardado');
         }
       } else {
-        appLogger.i('NumeroSerieValidador obtenido del storage (guardado desde login): $numeroSerieValidador');
+        appLogger.i('NumeroSerieValidador obtenido del storage');
       }
       
       if (numeroSerieValidador == null || numeroSerieValidador.isEmpty) {
@@ -57,14 +57,14 @@ class TurnService {
         return null;
       }
 
-      appLogger.d('Número de serie del validador: $numeroSerieValidador');
+      appLogger.d('Número de serie del validador resuelto');
 
       // Preparar el body de la petición
       final body = {
         'numeroSerieValidador': numeroSerieValidador,
       };
 
-      appLogger.d('Enviando petición para iniciar turno: $body');
+      appLogger.d('Enviando petición para iniciar turno');
 
       // Hacer la petición POST al endpoint
       final response = await _httpService.dio.post(
@@ -101,7 +101,7 @@ class TurnService {
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
 
       return null;
@@ -144,10 +144,10 @@ class TurnService {
         if (numeroSerieValidador != null && numeroSerieValidador.isNotEmpty) {
           // Guardar el valor obtenido del dispositivo para futuras operaciones
           await _storage.saveNumeroSerieValidador(numeroSerieValidador);
-          appLogger.i('NumeroSerieValidador obtenido del dispositivo y guardado: $numeroSerieValidador');
+          appLogger.i('NumeroSerieValidador obtenido del dispositivo y guardado');
         }
       } else {
-        appLogger.i('NumeroSerieValidador obtenido del storage (guardado desde login): $numeroSerieValidador');
+        appLogger.i('NumeroSerieValidador obtenido del storage');
       }
       
       if (numeroSerieValidador == null || numeroSerieValidador.isEmpty) {
@@ -155,14 +155,14 @@ class TurnService {
         return false;
       }
 
-      appLogger.d('Número de serie del validador: $numeroSerieValidador');
+      appLogger.d('Número de serie del validador resuelto');
 
       // Preparar el body de la petición
       final body = {
         'numeroSerieValidador': numeroSerieValidador,
       };
 
-      appLogger.d('Enviando petición para cerrar turno: $body');
+      appLogger.d('Enviando petición para cerrar turno');
 
       // Hacer la petición PATCH al endpoint
       final response = await _httpService.dio.patch(
@@ -189,7 +189,7 @@ class TurnService {
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
 
       return false;

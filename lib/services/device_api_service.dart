@@ -61,8 +61,8 @@ class DeviceApiService {
       }
       appLogger.w('Respuesta inesperada al leer NFC M1: ${response.statusCode}');
       return null;
-    } on DioException catch (e) {
-      appLogger.w('Error al leer NFC M1: ${e.message}');
+    } on DioException catch (_) {
+      appLogger.w('Error al leer NFC M1');
       return null;
     } catch (e) {
       appLogger.e('Error inesperado al leer NFC M1');
@@ -80,8 +80,8 @@ class DeviceApiService {
         appLogger.d('Android ID obtenido del API local');
         return data.androidId;
       }
-    } on DioException catch (e) {
-      appLogger.w('API local android-id no disponible: ${e.message}');
+    } on DioException catch (_) {
+      appLogger.w('API local android-id no disponible');
     } catch (e) {
       appLogger.e('Error inesperado al obtener Android ID local');
     }
@@ -102,8 +102,8 @@ class DeviceApiService {
           return serie;
         }
       }
-    } on DioException catch (e) {
-      appLogger.w('API local validador-serie no disponible: ${e.message}');
+    } on DioException catch (_) {
+      appLogger.w('API local validador-serie no disponible');
     } catch (e) {
       appLogger.e('Error inesperado al obtener serie del validador');
     }

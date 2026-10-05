@@ -119,7 +119,7 @@ class AuthController extends ChangeNotifier {
   Future<bool> login(String userName, String password) async {
     try {
       _errorMessage = null;
-      appLogger.i('Iniciando login para usuario: $userName');
+      appLogger.i('Iniciando login con contraseña');
 
       final deviceValidadorId = await DeviceService.getDeviceId();
       _logDeviceValidadorId('login password', deviceValidadorId);
@@ -129,6 +129,7 @@ class AuthController extends ChangeNotifier {
         data: {
           'userName': userName,
           'password': password,
+          if (deviceValidadorId.isNotEmpty) 'validadorId': deviceValidadorId,
         },
       );
 
@@ -168,7 +169,7 @@ class AuthController extends ChangeNotifier {
         return false;
       }
 
-      appLogger.i('Iniciando login con código para usuario: $storedUserName');
+      appLogger.i('Iniciando login con código');
       final validadorId = await DeviceService.getDeviceId();
       _logDeviceValidadorId('login PIN (body)', validadorId);
 

@@ -193,7 +193,7 @@ class TripService {
         'idVariante': idVariante,
       };
 
-      appLogger.d('Enviando petición para iniciar viaje: $body');
+      appLogger.d('Enviando petición para iniciar viaje');
 
       // Hacer la petición POST al endpoint
       final response = await _httpService.dio.post(
@@ -230,7 +230,7 @@ class TripService {
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
 
       return null;
@@ -284,7 +284,7 @@ class TripService {
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
-        appLogger.e('Respuesta del servidor: ${e.response?.data}');
+        appLogger.e('El servidor rechazó la operación');
       }
 
       return false;

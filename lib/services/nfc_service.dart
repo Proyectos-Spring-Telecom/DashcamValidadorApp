@@ -118,7 +118,7 @@ class NfcService {
               : null;
           if (uid != null && uid.isNotEmpty) {
             parsed = NfcM1Response(result: 0, cardUid: uid);
-            appLogger.d('Tag detectado UID=$uid');
+            appLogger.d('Tag detectado');
           } else {
             parsed = NfcM1Response(result: -1);
             appLogger.d('Tag detectado pero sin UID');
@@ -169,9 +169,7 @@ class NfcService {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
         final parsed = NfcM1Response.fromJson(data);
-        appLogger.d(
-          '← $host result=${parsed.result} uid=${parsed.cardUid ?? "(vacío)"}',
-        );
+        appLogger.d('← $host result=${parsed.result}');
         return parsed;
       }
       appLogger.d('← $host HTTP ${response.statusCode}');
@@ -210,7 +208,7 @@ class NfcService {
           r.isSuccess &&
           r.cardUid != null &&
           r.cardUid!.isNotEmpty) {
-        appLogger.d('✓ UID nativo: ${r.cardUid}');
+        appLogger.d('UID nativo leído');
         return r.cardUid;
       }
       appLogger.d(
@@ -237,12 +235,10 @@ class NfcService {
           stableReads = 1;
         }
         if (stableReads >= 2) {
-          appLogger.d(
-            '✓ UID lector HTTP (poll #$poll, estable): $uid',
-          );
+          appLogger.d('UID lector HTTP confirmado (poll #$poll)');
           return uid;
         }
-        appLogger.d('UID candidato (poll #$poll): $uid — confirmando…');
+        appLogger.d('UID candidato (poll #$poll), confirmando');
       } else {
         lastUid = null;
         stableReads = 0;
