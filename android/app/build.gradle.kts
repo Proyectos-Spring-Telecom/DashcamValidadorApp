@@ -32,11 +32,31 @@ android {
         versionName = flutter.versionName
     }
 
+    val releaseStore = System.getenv("DASHCAM_UPLOAD_STORE_FILE")
+    val releaseStorePassword = System.getenv("DASHCAM_UPLOAD_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("DASHCAM_UPLOAD_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("DASHCAM_UPLOAD_KEY_PASSWORD")
+    val hasReleaseKeystore = !releaseStore.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(releaseStore!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

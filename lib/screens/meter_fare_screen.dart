@@ -46,7 +46,7 @@ class _MeterFareScreenState extends State<MeterFareScreen> {
     if (!globalGpsService.isActive && !globalGpsService.isPersistent) {
       appLogger.w('GPS no está activo en tarifa por metro, activando modo persistente...');
       globalGpsService.startPersistent().catchError((e) {
-        appLogger.e('Error al activar GPS en tarifa por metro: $e');
+        appLogger.e('Error al activar GPS en tarifa por metro');
       });
     } else {
       appLogger.d('GPS está activo (isActive: ${globalGpsService.isActive}, isPersistent: ${globalGpsService.isPersistent})');

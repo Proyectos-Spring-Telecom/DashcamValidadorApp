@@ -319,8 +319,7 @@ class _DirectoScreenState extends State<DirectoScreen> {
       );
     }
 
-    appLogger.i(
-        '💳 Débito NFC monedero ${wallet.numeroSerie}, idCard=$idCard, idViaje=$idViaje');
+    appLogger.i('Débito NFC en viaje activo');
     return executeTripDebit(
       idViaje: idViaje,
       idCard: idCard,

@@ -1,8 +1,17 @@
+import 'package:flutter/foundation.dart';
+
 /// Configuración centralizada de la aplicación
 /// Contiene URLs, timeouts y otras constantes de configuración
 class AppConfig {
   // API remota solo HTTPS. Cleartext permitido únicamente a loopback (lector local).
-  static const String apiBaseUrl = 'https://dashcampay.com/apidev';
+  // Debug → apidev. Release → api. Override: --dart-define=API_BASE_URL=...
+  static String get apiBaseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return kReleaseMode
+        ? 'https://dashcampay.com/api'
+        : 'https://dashcampay.com/apidev';
+  }
   static const String localDeviceApiUrl = 'http://127.0.0.1:8080';
   static const int localDeviceApiPort = 8080;
 

@@ -42,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
       appLogger.i('Navegando a: $destination');
       context.go(destination);
     } catch (e) {
-      appLogger.e('Error durante inicialización', e);
+      appLogger.e('Error durante inicialización');
       if (mounted) {
         context.go('/welcome');
       }

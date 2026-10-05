@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
 import '../config/app_config.dart';
+import 'storage_service.dart';
 import '../utils/logger.dart';
 import '../utils/nfc_result_codes.dart';
 
@@ -51,8 +52,16 @@ class NfcService {
   /// Solo loopback: cleartext permitido únicamente para 127.0.0.1/localhost.
   static const String _loopbackHost = '127.0.0.1';
 
+  static Future<bool> _haySesion() async {
+    final token = await StorageService().getToken();
+    return token != null && token.isNotEmpty;
+  }
+
   /// Lee una tarjeta NFC M1 (nativo primero, luego HTTP local).
   static Future<NfcM1Response> readM1Card() async {
+    if (!await _haySesion()) {
+      return NfcM1Response(result: -1);
+    }
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final nativeResponse = await _readM1FromAndroidNfc();
@@ -136,7 +145,7 @@ class NfcService {
 
       return parsed ?? NfcM1Response(result: -1);
     } catch (e) {
-      appLogger.w('Error lectura NFC nativa Android: $e');
+      appLogger.w('Error lectura NFC nativa Android');
       try {
         await NfcManagerAndroid.instance.disableReaderMode();
       } catch (_) {}
@@ -167,7 +176,7 @@ class NfcService {
       }
       appLogger.d('← $host HTTP ${response.statusCode}');
     } catch (e) {
-      appLogger.d('✗ $host error: $e');
+      appLogger.d('✗ $host error');
       return null;
     }
     return null;
@@ -175,6 +184,10 @@ class NfcService {
 
   /// Espera hasta [timeout] a que se acerque una tarjeta y devuelve el UID (hex).
   static Future<String?> readCardUidWithTimeout({Duration? timeout}) async {
+    if (!await _haySesion()) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return null;
+    }
     final limit = timeout ?? AppConfig.nfcCardReadTimeout;
     final deadline = DateTime.now().add(limit);
     var poll = 0;

@@ -219,7 +219,7 @@ class _TripDebitSectionState extends State<_TripDebitSection> {
         _cameraFacing = target;
       });
     } catch (e) {
-      appLogger.w('No se pudo crear controlador cámara $target: $e');
+      appLogger.w('No se pudo crear controlador cámara $target');
       await _disableQrOrTryBackCamera(target);
     }
   }

@@ -40,7 +40,7 @@ class _DynamicFareScreenState extends State<DynamicFareScreen> {
     if (!globalGpsService.isActive && !globalGpsService.isPersistent) {
       appLogger.w('GPS no está activo en tarifa dinámica, activando modo persistente...');
       globalGpsService.startPersistent().catchError((e) {
-        appLogger.e('Error al activar GPS en tarifa dinámica: $e');
+        appLogger.e('Error al activar GPS en tarifa dinámica');
       });
     } else {
       appLogger.d('GPS está activo (isActive: ${globalGpsService.isActive}, isPersistent: ${globalGpsService.isPersistent})');

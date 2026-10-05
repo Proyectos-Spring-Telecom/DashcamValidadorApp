@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Modelos para la respuesta del endpoint de actividad
 
 /// Respuesta completa del endpoint de actividad
@@ -46,22 +48,20 @@ class ActivityData {
                 try {
                   return Viaje.fromJson(v);
                 } catch (e) {
-                  print('❌ Error al parsear viaje: $e');
-                  print('   - Datos del viaje: $v');
+                  if (kDebugMode) {
+                    print('Error al parsear viaje');
+                  }
                   rethrow;
                 }
               })
               .toList();
         } catch (e) {
-          print('❌ Error al parsear lista de viajes: $e');
-          print('   - Datos de viajes: $viajesData');
+          if (kDebugMode) {
+            print('Error al parsear lista de viajes');
+          }
           rethrow;
         }
-      } else {
-        print('⚠️ "viajes" no es una List, es: ${viajesData.runtimeType}');
       }
-    } else {
-      print('⚠️ No se encontró "viajes" en el JSON o es null');
     }
     
     // Parsear ultimaPosicion
@@ -72,15 +72,12 @@ class ActivityData {
         try {
           ultimaPosicion = UltimaPosicion.fromJson(ultimaPosicionData);
         } catch (e) {
-          print('❌ Error al parsear ultimaPosicion: $e');
-          print('   - Datos de ultimaPosicion: $ultimaPosicionData');
+          if (kDebugMode) {
+            print('Error al parsear ultimaPosicion');
+          }
           rethrow;
         }
-      } else {
-        print('⚠️ "ultimaPosicion" no es un Map, es: ${ultimaPosicionData.runtimeType}');
       }
-    } else {
-      print('ℹ️ No se encontró "ultimaPosicion" en el JSON o es null (esto es normal si no hay posición)');
     }
     
     return ActivityData(

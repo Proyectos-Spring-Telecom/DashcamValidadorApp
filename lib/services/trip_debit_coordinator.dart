@@ -11,15 +11,26 @@ Future<DebitTripTransactionResult> executeTripDebit({
   bool esMultiple = false,
   int cantidadPasajes = 0,
 }) async {
-  appLogger.d(
-    '→ Débito idViaje=$idViaje esQR=$esQR idCard=$idCard '
-    'serie=$numeroSerieMonedero pasajes=$cantidadPasajes',
-  );
+  appLogger.d('Débito de viaje esQR=$esQR pasajes=$cantidadPasajes');
 
   final loc = await nativeGpsService.getCurrentLocation();
-  final lat = loc?.lat ?? 19.432608;
-  final lon = loc?.lon ?? -99.133209;
-  appLogger.d('GPS débito: lat=$lat lon=$lon (válido=${loc?.isValid})');
+  final lat = loc?.lat;
+  final lon = loc?.lon;
+  if (loc == null ||
+      lat == null ||
+      lon == null ||
+      !loc.isValid ||
+      lat.isNaN ||
+      lon.isNaN ||
+      (lat == 0.0 && lon == 0.0) ||
+      lat.abs() > 90 ||
+      lon.abs() > 180) {
+    appLogger.w('Débito cancelado: GPS no disponible');
+    return DebitTripTransactionResult(
+      success: false,
+      errorMessage: 'Ubicación GPS no disponible',
+    );
+  }
 
   final result = await walletService.debitTripTransaction(
     idCard: idCard,

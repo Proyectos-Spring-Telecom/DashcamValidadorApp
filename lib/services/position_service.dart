@@ -69,6 +69,25 @@ class PositionService {
       return;
     }
 
+    // No enviar coordenadas nulas / (0,0) / fuera de rango
+    if (location.lat.abs() < 0.0001 && location.lon.abs() < 0.0001) {
+      appLogger.w('GPS en (0,0), omitiendo envío');
+      return;
+    }
+    if (location.lat.abs() > 90 || location.lon.abs() > 180) {
+      appLogger.w('GPS fuera de rango, omitiendo envío');
+      return;
+    }
+    if (location.velocidadKmh > 250) {
+      appLogger.w('GPS con velocidad imposible, omitiendo envío');
+      return;
+    }
+    if (location.tiempoTranscurrido.isNegative &&
+        location.tiempoTranscurrido.abs() > const Duration(minutes: 2)) {
+      appLogger.w('GPS con reloj adelantado, omitiendo envío');
+      return;
+    }
+
     // Verificar que la exactitud sea razonable (menos de 500m)
     if (location.exactitud > AppConfig.maxGpsAccuracy) {
       appLogger.w('GPS con baja exactitud (${location.exactitud}m), omitiendo envío');
@@ -137,15 +156,7 @@ class PositionService {
         'numeroSerieValidador': numeroSerieValidador,
       };
 
-      appLogger.i('📤 POST ${AppConfig.endpointPositions}');
-      appLogger.i('   - exactitud: ${location.resultado}');
-      appLogger.i('   - estado: ${location.estado}');
-      appLogger.i('   - velocidad: ${requestData['velocidad']} km/h');
-      appLogger.i('   - direccion: ${requestData['direccion']}°');
-      appLogger.i('   - latitud: $latitud, longitud: $longitud');
-      appLogger.i('   - fechaHora: $fechaHora');
-      appLogger.i('   - numeroSerieValidador: $numeroSerieValidador');
-      appLogger.d('Body: $requestData');
+      appLogger.d('POST ${AppConfig.endpointPositions} (coords ok, serie omitida)');
 
       final response = await _httpService.dio.post(
         AppConfig.endpointPositions,
@@ -161,11 +172,11 @@ class PositionService {
       }
     } on DioException catch (e) {
       final errorMessage = _errorHandler.handleError(e);
-      appLogger.e('Error al enviar posición GPS: $errorMessage', e);
+      appLogger.e('Error al enviar posición GPS');
       // No lanzar excepción, solo loguear el error
       // El servicio continuará intentando en el siguiente intervalo
     } catch (e) {
-      appLogger.e('Error inesperado al enviar posición GPS', e);
+      appLogger.e('Error inesperado al enviar posición GPS');
     }
   }
 

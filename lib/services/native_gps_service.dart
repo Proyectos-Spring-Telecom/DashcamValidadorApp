@@ -234,15 +234,14 @@ class NativeGpsService {
         timeLimit: const Duration(seconds: 45),
       );
 
-      if (position != null) {
-        appLogger.i('✅ Ubicación GPS obtenida: Lat=${position.latitude}, Lon=${position.longitude}, Accuracy=${position.accuracy}m');
-        return NativeGpsLocationResponse.fromPosition(position);
-      } else {
-        appLogger.w('No se pudo obtener ubicación GPS');
+      if (position.isMocked) {
+        appLogger.w('GPS simulado, descartando');
         return null;
       }
+      appLogger.i('Ubicación GPS obtenida (exactitud ${position.accuracy}m)');
+      return NativeGpsLocationResponse.fromPosition(position);
     } catch (e) {
-      appLogger.e('Error al obtener ubicación actual', e);
+      appLogger.e('Error al obtener ubicación actual');
       // Si es un timeout, puede ser que el GPS esté tardando en activarse
       if (e.toString().contains('timeout') || e.toString().contains('TimeoutException')) {
         appLogger.w('Timeout al obtener ubicación GPS - el sensor puede estar tardando en activarse');
@@ -266,14 +265,14 @@ class NativeGpsService {
       
       if (position != null) {
         appLogger.i('✅ Sensor GPS activado exitosamente');
-        appLogger.d('Ubicación inicial: Lat=${position.latitude}, Lon=${position.longitude}, Accuracy=${position.accuracy}m');
+        appLogger.d('Sensor GPS activado');
         return true;
       }
       
       appLogger.w('No se pudo obtener ubicación inicial para activar GPS');
       return false;
-    } catch (e) {
-      appLogger.w('Error al forzar activación del GPS (puede ser normal si el GPS tarda en activarse): $e');
+    } catch (_) {
+      appLogger.w('Error al forzar activación del GPS');
       // No fallar completamente, el stream puede funcionar sin esto
       return false;
     }
@@ -321,7 +320,7 @@ class NativeGpsService {
           _processLocationUpdate(position);
         },
         onError: (error) {
-          appLogger.w('Error en stream de ubicación GPS', error);
+          appLogger.w('Error en stream de ubicación GPS');
           // No detener el stream por errores, solo loguear
         },
         cancelOnError: false, // No cancelar el stream en caso de error
@@ -331,7 +330,7 @@ class NativeGpsService {
 
       return true;
     } catch (e) {
-      appLogger.e('Error al iniciar stream de ubicación', e);
+      appLogger.e('Error al iniciar stream de ubicación');
       return false;
     }
   }
@@ -339,6 +338,11 @@ class NativeGpsService {
   /// Procesa actualizaciones de ubicación - máxima frecuencia sin restricciones
   /// Dispositivo dedicado: sin limitaciones de batería o datos
   void _processLocationUpdate(Position position) {
+    if (position.isMocked) {
+      appLogger.w('GPS simulado, descartando');
+      return;
+    }
+
     final now = DateTime.now();
     
     final newLocation = NativeGpsLocationResponse.fromPosition(position);

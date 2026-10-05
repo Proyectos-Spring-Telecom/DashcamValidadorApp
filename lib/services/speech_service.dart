@@ -24,7 +24,7 @@ class SpeechService {
 
       _initialized = true;
     } catch (e, st) {
-      appLogger.w('No se pudo inicializar TTS: $e', e, st);
+      appLogger.w('No se pudo inicializar TTS');
     }
   }
 
@@ -36,7 +36,7 @@ class SpeechService {
       await _tts.speak(text);
       appLogger.i('TTS: $text');
     } catch (e, st) {
-      appLogger.w('Error al reproducir TTS: $e', e, st);
+      appLogger.w('Error al reproducir TTS');
     }
   }
 

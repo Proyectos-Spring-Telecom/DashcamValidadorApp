@@ -34,7 +34,7 @@ class TurnService {
       // Verificar si ya existe un turno guardado
       final existingTurnId = await _storage.getTurnId();
       if (existingTurnId != null && existingTurnId.isNotEmpty) {
-        appLogger.w('Ya existe un turno activo (ID: $existingTurnId). No se puede iniciar un nuevo turno.');
+        appLogger.w('Ya existe un turno activo (IDxistingTurnId). No se puede iniciar un nuevo turno.');
         return null;
       }
 
@@ -97,7 +97,7 @@ class TurnService {
       return null;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al iniciar turno: $msg', e);
+      appLogger.e('Error al iniciar turno: $msg');
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -106,7 +106,7 @@ class TurnService {
 
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al iniciar turno', e);
+      appLogger.e('Error inesperado al iniciar turno');
       return null;
     }
   }
@@ -185,7 +185,7 @@ class TurnService {
       return false;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al cerrar turno: $msg', e);
+      appLogger.e('Error al cerrar turno: $msg');
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -194,7 +194,7 @@ class TurnService {
 
       return false;
     } catch (e) {
-      appLogger.e('Error inesperado al cerrar turno', e);
+      appLogger.e('Error inesperado al cerrar turno');
       return false;
     }
   }

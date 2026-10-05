@@ -443,12 +443,29 @@ class _RechargeScreenState extends State<RechargeScreen> {
 
     final location = await nativeGpsService.getCurrentLocation();
     if (!mounted) return;
-    final lat = location?.lat ?? 19.432608;
-    final lon = location?.lon ?? -99.133209;
+    final lat = location?.lat;
+    final lon = location?.lon;
+    if (location == null ||
+        !location.isValid ||
+        lat == null ||
+        lon == null ||
+        (lat == 0.0 && lon == 0.0)) {
+      setState(() {
+        _statusMessage = 'Ubicación GPS no disponible';
+        _isProcessing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ubicación GPS no disponible'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _statusMessage = 'Procesando recarga...');
 
-    appLogger.i('💰 Iniciando recarga de \$${amount.toStringAsFixed(2)} para monedero ${wallet.numeroSerie}');
+    appLogger.i('Iniciando recarga');
     
     final result = await walletService.rechargeWallet(
       numeroSerieMonedero: wallet.numeroSerie,

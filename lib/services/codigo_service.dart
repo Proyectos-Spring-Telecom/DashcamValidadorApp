@@ -21,7 +21,7 @@ class CodigoService {
   }) async {
     try {
       _lastError = null;
-      appLogger.i('Actualizando código para usuario: $userName');
+      appLogger.i('Actualizando código de acceso');
 
       // Obtener el token de autenticación
       final token = auth.token;
@@ -52,7 +52,7 @@ class CodigoService {
       }
     } catch (e) {
       _lastError = _errorHandler.handleError(e, defaultMessage: 'Error al actualizar código');
-      appLogger.e('Error al actualizar código', e);
+      appLogger.e('Error al actualizar código');
       return false;
     }
   }

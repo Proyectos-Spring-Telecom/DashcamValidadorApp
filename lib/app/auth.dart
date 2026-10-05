@@ -55,20 +55,8 @@ class AuthController extends ChangeNotifier {
 
   void _logDeviceValidadorId(String source, String deviceId) {
     _lastDeviceValidadorId = deviceId;
-    // print plano: fácil de ver en `flutter run` (sin PrettyPrinter).
-    // ignore: avoid_print
-    print('');
-    // ignore: avoid_print
-    print('========== DEVICE ID / validadorId ==========');
-    // ignore: avoid_print
-    print('Origen : $source');
-    // ignore: avoid_print
-    print('Valor  : $deviceId');
-    // ignore: avoid_print
-    print('=============================================');
-    // ignore: avoid_print
-    print('');
-    appLogger.i('🆔 Device ID / validadorId ($source) = $deviceId');
+    if (!kDebugMode) return;
+    appLogger.d('Device ID / validadorId ($source) resuelto');
   }
 
   Future<void> initialize() async {
@@ -122,7 +110,7 @@ class AuthController extends ChangeNotifier {
         await _clearLocalSession();
       }
     } catch (e) {
-      appLogger.e('Error al restaurar sesión', e);
+      appLogger.e('Error al restaurar sesión');
       await _clearLocalSession();
     }
   }
@@ -155,13 +143,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return false;
     } on DioException catch (e) {
-      _errorMessage = _errorHandler.handleError(e);
-      appLogger.e('Error en login', e);
+      _errorMessage = _errorHandler.handleLoginError(e);
+      appLogger.e('Error en login');
       notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = _errorHandler.handleError(e);
-      appLogger.e('Error inesperado en login', e);
+      _errorMessage = _errorHandler.handleLoginError(e);
+      appLogger.e('Error inesperado en login');
       notifyListeners();
       return false;
     }
@@ -189,7 +177,9 @@ class AuthController extends ChangeNotifier {
         'codigohash': codigo,
         'validadorId': validadorId,
       };
-      appLogger.d('Body de la petición: $requestData');
+      appLogger.d(
+        'Login PIN: userName presente, PIN omitido, validadorId presente=${validadorId.isNotEmpty}',
+      );
 
       final response = await _httpService.dio.post(
         AppConfig.endpointLoginWithPin,
@@ -209,13 +199,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return false;
     } on DioException catch (e) {
-      _errorMessage = _errorHandler.handleError(e);
-      appLogger.e('Error en login con código', e);
+      _errorMessage = _errorHandler.handleLoginError(e);
+      appLogger.e('Error en login con código');
       notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = _errorHandler.handleError(e);
-      appLogger.e('Error inesperado en login con código', e);
+      _errorMessage = _errorHandler.handleLoginError(e);
+      appLogger.e('Error inesperado en login con código');
       notifyListeners();
       return false;
     }
@@ -283,10 +273,10 @@ class AuthController extends ChangeNotifier {
         refreshToken: refreshToken,
       );
     } on DioException catch (e) {
-      appLogger.e('Error en /login/me', e);
+      appLogger.e('Error en /login/me');
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado en /login/me', e);
+      appLogger.e('Error inesperado en /login/me');
       return null;
     }
   }
@@ -347,31 +337,20 @@ class AuthController extends ChangeNotifier {
         },
       );
     } catch (e) {
-      appLogger.w('Error al obtener Device ID: $e, usando ID del servidor');
+      appLogger.w('Error al obtener Device ID, usando ID del servidor');
       currentDeviceId = loginResponse.deviceId ?? '';
     }
 
     if (currentDeviceId.isNotEmpty) {
       try {
-        final deviceRegistered = await _deviceRegistration
-            .registerDevice(loginResponse.userName, loginResponse.idCliente)
-            .timeout(const Duration(seconds: 10), onTimeout: () {
-          appLogger.w('Timeout al registrar dispositivo, continuando con login');
-          return false;
-        });
-
-        if (!deviceRegistered) {
-          appLogger.w(
-            'No se pudo registrar/actualizar dispositivo. Continuando con login.',
-          );
-        } else {
-          appLogger.i('Dispositivo registrado/actualizado exitosamente.');
-        }
+        await _deviceRegistration
+            .registerDevice(loginResponse.userName, loginResponse.idCliente);
+        _logDeviceValidadorId('login (sin PATCH validador)', currentDeviceId);
       } catch (e) {
-        appLogger.w('Error al registrar dispositivo: $e, continuando con login');
+        appLogger.w('No se pudo leer Device ID local');
       }
     } else {
-      appLogger.w('No se pudo obtener Device ID, omitiendo registro de dispositivo');
+      appLogger.w('No se pudo obtener Device ID, se omite el log de dispositivo');
     }
 
     appLogger.i('Login completado exitosamente');
@@ -385,7 +364,7 @@ class AuthController extends ChangeNotifier {
       await globalGpsService.startPersistent();
       appLogger.i('GPS activado en modo persistente después del login');
     } catch (e, st) {
-      appLogger.w('Error al activar GPS en modo persistente: $e', e, st);
+      appLogger.w('Error al activar GPS en modo persistente');
     }
   }
 
@@ -415,7 +394,7 @@ class AuthController extends ChangeNotifier {
       await globalGpsService.stopPersistent();
       appLogger.i('GPS desactivado del modo persistente');
     } catch (e) {
-      appLogger.w('Error al desactivar GPS en modo persistente: $e');
+      appLogger.w('Error al desactivar GPS en modo persistente');
     }
 
     positionService.stop();

@@ -84,10 +84,10 @@ class TripService {
       return [];
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al obtener zonas: $msg', e);
+      appLogger.e('Error al obtener zonas: $msg');
       return [];
     } catch (e) {
-      appLogger.e('Error inesperado al obtener zonas', e);
+      appLogger.e('Error inesperado al obtener zonas');
       return [];
     }
   }
@@ -121,10 +121,10 @@ class TripService {
       return [];
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al obtener rutas: $msg', e);
+      appLogger.e('Error al obtener rutas: $msg');
       return [];
     } catch (e) {
-      appLogger.e('Error inesperado al obtener rutas', e);
+      appLogger.e('Error inesperado al obtener rutas');
       return [];
     }
   }
@@ -158,10 +158,10 @@ class TripService {
       return [];
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al obtener variantes: $msg', e);
+      appLogger.e('Error al obtener variantes: $msg');
       return [];
     } catch (e) {
-      appLogger.e('Error inesperado al obtener variantes', e);
+      appLogger.e('Error inesperado al obtener variantes');
       return [];
     }
   }
@@ -226,7 +226,7 @@ class TripService {
       return null;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al iniciar viaje: $msg', e);
+      appLogger.e('Error al iniciar viaje: $msg');
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -235,7 +235,7 @@ class TripService {
 
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al iniciar viaje', e);
+      appLogger.e('Error inesperado al iniciar viaje');
       return null;
     }
   }
@@ -280,7 +280,7 @@ class TripService {
       return false;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al cerrar viaje: $msg', e);
+      appLogger.e('Error al cerrar viaje: $msg');
 
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -289,7 +289,7 @@ class TripService {
 
       return false;
     } catch (e) {
-      appLogger.e('Error inesperado al cerrar viaje', e);
+      appLogger.e('Error inesperado al cerrar viaje');
       return false;
     }
   }

@@ -75,6 +75,9 @@ QrDebitPayload parseQrDebitPayload(String raw) {
           );
         }
 
+        if (cant > 50) {
+          cant = 50;
+        }
         if (cant <= 0) {
           cant = esMultiple ? 2 : 1;
         }

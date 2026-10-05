@@ -224,10 +224,10 @@ class HttpService {
       );
       return tokens;
     } on DioException catch (e) {
-      appLogger.e('Error al refrescar token: ${e.response?.statusCode}', e);
+      appLogger.e('Error al refrescar token: ${e.response?.statusCode}');
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al refrescar token', e);
+      appLogger.e('Error inesperado al refrescar token');
       return null;
     }
   }

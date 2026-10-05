@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:dio/dio.dart';
 import '../services/http_service.dart';
 import '../services/error_handler_service.dart';
@@ -46,6 +47,32 @@ class WalletService {
   final HttpService _httpService = httpService;
   final ErrorHandlerService _errorHandler = errorHandler;
   final StorageService _storage = StorageService();
+  final Map<String, String> _pendingIdempotencyKeys = {};
+
+  String _newUuidV4() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
+  bool _coordenadaUsable(double lat, double lon) {
+    if (lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) return false;
+    if (lat == 0.0 && lon == 0.0) return false;
+    if (lat.abs() > 90 || lon.abs() > 180) return false;
+    return true;
+  }
+
+  /// Misma llave mientras el tap no termine (reintento). Nuevo tap = nueva llave.
+  String _claveIdempotencia(String fingerprint) {
+    return _pendingIdempotencyKeys.putIfAbsent(fingerprint, _newUuidV4);
+  }
+
+  void _liberarClave(String fingerprint) {
+    _pendingIdempotencyKeys.remove(fingerprint);
+  }
 
   /// Recarga el monedero vía API (endpointRechargeWallet).
   /// Usa numeroSerieValidador del storage o del dispositivo, GPS para lat/lon, idMetodoPago: 1.
@@ -56,19 +83,15 @@ class WalletService {
     required String numeroSerieMonedero,
   }) async {
     try {
-      // Valores por defecto si GPS no está disponible
-      const double defaultLat = 19.432608;
-      const double defaultLon = -99.133209;
-
-      double lat = latitudInicial;
-      double lon = longitudInicial;
-      if (lat == 0.0 || lon == 0.0 || lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.w('GPS no disponible o inválido, usando coordenadas por defecto');
-        lat = defaultLat;
-        lon = defaultLon;
+      if (!_coordenadaUsable(latitudInicial, longitudInicial)) {
+        appLogger.w('GPS no disponible o inválido en recarga');
+        return RechargeWalletResult(
+          success: false,
+          errorMessage: 'Ubicación GPS no disponible',
+        );
       }
-      if (lat < -90 || lat > 90) lat = defaultLat;
-      if (lon < -180 || lon > 180) lon = defaultLon;
+      final lat = latitudInicial;
+      final lon = longitudInicial;
 
       final latRounded = double.parse(lat.toStringAsFixed(6));
       final lonRounded = double.parse(lon.toStringAsFixed(6));
@@ -86,6 +109,8 @@ class WalletService {
       }
 
       final montoValue = (monto % 1 == 0) ? monto.toInt() : monto;
+      final fingerprint = 'recarga|$numeroSerieMonedero|$montoValue';
+      final claveIdempotencia = _claveIdempotencia(fingerprint);
 
       final body = {
         'idTipoTransaccion': 1,
@@ -95,15 +120,10 @@ class WalletService {
         'numeroSerieMonedero': numeroSerieMonedero,
         'numeroSerieValidador': numeroSerieValidador,
         'idMetodoPago': 1,
+        'claveIdempotencia': claveIdempotencia,
       };
 
-      appLogger.i('📤 Enviando recarga de monedero:');
-      appLogger.i('   - idTipoTransaccion: 1');
-      appLogger.i('   - monto: $montoValue');
-      appLogger.i('   - latitudInicial: $latRounded, longitudInicial: $lonRounded');
-      appLogger.i('   - numeroSerieMonedero: $numeroSerieMonedero');
-      appLogger.i('   - numeroSerieValidador: $numeroSerieValidador');
-      appLogger.i('   - idMetodoPago: 1');
+      appLogger.d('Enviando recarga de monedero (serie omitida)');
 
       final response = await _httpService.dio.post(
         AppConfig.endpointRechargeWallet,
@@ -111,6 +131,7 @@ class WalletService {
       );
 
       if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+        _liberarClave(fingerprint);
         appLogger.i('✅ Recarga de monedero realizada correctamente');
         return RechargeWalletResult(success: true);
       }
@@ -119,13 +140,13 @@ class WalletService {
       return RechargeWalletResult(success: false, errorMessage: msg ?? 'Error al recargar');
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al recargar monedero: $msg', e);
+      appLogger.e('Error al recargar monedero: $msg');
       if (e.response != null) {
         appLogger.e('Respuesta del servidor: ${e.response?.data}');
       }
       return RechargeWalletResult(success: false, errorMessage: msg ?? 'Error de conexión');
     } catch (e) {
-      appLogger.e('Error inesperado al recargar monedero', e);
+      appLogger.e('Error inesperado al recargar monedero');
       return RechargeWalletResult(success: false, errorMessage: e.toString());
     }
   }
@@ -184,18 +205,15 @@ class WalletService {
     int cantidadPasajes = 0,
   }) async {
     try {
-      const double defaultLat = 19.432608;
-      const double defaultLon = -99.133209;
-
-      double lat = latitud;
-      double lon = longitud;
-      if (lat == 0.0 || lon == 0.0 || lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.w('GPS no disponible o inválido (débito viaje), usando coordenadas por defecto');
-        lat = defaultLat;
-        lon = defaultLon;
+      if (!_coordenadaUsable(latitud, longitud)) {
+        appLogger.w('GPS no disponible o inválido en débito');
+        return DebitTripTransactionResult(
+          success: false,
+          errorMessage: 'Ubicación GPS no disponible',
+        );
       }
-      if (lat < -90 || lat > 90) lat = defaultLat;
-      if (lon < -180 || lon > 180) lon = defaultLon;
+      final lat = latitud;
+      final lon = longitud;
 
       final latRounded = double.parse(lat.toStringAsFixed(6));
       final lonRounded = double.parse(lon.toStringAsFixed(6));
@@ -212,6 +230,9 @@ class WalletService {
         return DebitTripTransactionResult(success: false, errorMessage: 'Validador no configurado');
       }
 
+      final fingerprint = 'debito|$idCard|$idViaje|$esQR|$esMultiple|$cantidadPasajes';
+      final claveIdempotencia = _claveIdempotencia(fingerprint);
+
       final body = {
         'latitud': latRounded,
         'longitud': lonRounded,
@@ -222,12 +243,10 @@ class WalletService {
         'esQR': esQR,
         'esMultiple': esMultiple,
         'cantidadPasajes': cantidadPasajes,
+        'claveIdempotencia': claveIdempotencia,
       };
 
-      appLogger.i('📤 Débito viaje → ${AppConfig.endpointDebitTransaction}');
-      appLogger.d('Body: $body');
-      appLogger.d('POST ${AppConfig.endpointDebitTransaction}');
-      appLogger.d('Body: $body');
+      appLogger.d('Débito viaje (payload omitido)');
 
       final response = await _httpService.dio.post(
         AppConfig.endpointDebitTransaction,
@@ -235,15 +254,19 @@ class WalletService {
       );
 
       final parsed = _parseDebitResponse(response.data, response.statusCode);
-      if (parsed != null) return parsed;
+      if (parsed != null) {
+        if (parsed.success) _liberarClave(fingerprint);
+        return parsed;
+      }
 
       if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+        _liberarClave(fingerprint);
         appLogger.i('✅ Débito viaje exitoso');
         appLogger.d('← HTTP ${response.statusCode} débito OK');
         return DebitTripTransactionResult(success: true);
       }
       final msg = response.data is Map ? (response.data as Map)['message']?.toString() : null;
-      appLogger.d('← HTTP ${response.statusCode} ${response.data}');
+      appLogger.d('← HTTP ${response.statusCode} débito (cuerpo omitido)');
       return DebitTripTransactionResult(
         success: false,
         errorMessage: NfcResultCodes.friendlyMessage(
@@ -252,7 +275,7 @@ class WalletService {
       );
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error débito viaje: $msg', e);
+      appLogger.e('Error débito viaje: $msg');
       appLogger.d('✗ DioException débito: $msg');
       if (e.response != null) {
         appLogger.e('Respuesta: ${e.response?.data}');
@@ -265,7 +288,7 @@ class WalletService {
         errorMessage: NfcResultCodes.friendlyMessage(msg ?? 'Error de conexión'),
       );
     } catch (e) {
-      appLogger.e('Error inesperado débito viaje', e);
+      appLogger.e('Error inesperado débito viaje');
       return DebitTripTransactionResult(success: false, errorMessage: e.toString());
     }
   }
@@ -282,10 +305,10 @@ class WalletService {
       return null;
     } on DioException catch (e) {
       _errorHandler.handleError(e);
-      appLogger.e('Error al obtener monedero', e);
+      appLogger.e('Error al obtener monedero');
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al obtener monedero', e);
+      appLogger.e('Error inesperado al obtener monedero');
       return null;
     }
   }
@@ -308,10 +331,10 @@ class WalletService {
       return null;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al obtener pasajero: $msg', e);
+      appLogger.e('Error al obtener pasajero: $msg');
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al obtener pasajero', e);
+      appLogger.e('Error inesperado al obtener pasajero');
       return null;
     }
   }
@@ -328,7 +351,7 @@ class WalletService {
     try {
       // Validar que no sean NaN o Infinite
       if (lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite): lat=$lat, lon=$lon');
+        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite)');
         return null;
       }
 
@@ -386,7 +409,7 @@ class WalletService {
       return null;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al iniciar transacción de débito: $msg', e);
+      appLogger.e('Error al iniciar transacción de débito: $msg');
       
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -395,7 +418,7 @@ class WalletService {
       
       return null;
     } catch (e) {
-      appLogger.e('Error inesperado al iniciar transacción de débito', e);
+      appLogger.e('Error inesperado al iniciar transacción de débito');
       return null;
     }
   }
@@ -413,7 +436,7 @@ class WalletService {
     try {
       // Validar que no sean NaN o Infinite
       if (lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite): lat=$lat, lon=$lon');
+        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite)');
         return false;
       }
 
@@ -466,7 +489,7 @@ class WalletService {
       return false;
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al finalizar transacción de débito: $msg', e);
+      appLogger.e('Error al finalizar transacción de débito: $msg');
       
       // Log adicional del error del servidor si está disponible
       if (e.response != null) {
@@ -475,7 +498,7 @@ class WalletService {
       
       return false;
     } catch (e) {
-      appLogger.e('Error inesperado al finalizar transacción de débito', e);
+      appLogger.e('Error inesperado al finalizar transacción de débito');
       return false;
     }
   }

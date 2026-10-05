@@ -103,7 +103,7 @@ class GlobalGpsService extends ChangeNotifier {
             return;
           }
         } catch (e) {
-          appLogger.w('Error al verificar GPS, puede ser necesario reiniciar: $e');
+          appLogger.w('Error al verificar GPS, puede ser necesario reiniciar');
         }
         // Solo si realmente hay un problema, reiniciar
         appLogger.w('GPS no responde correctamente, reiniciando...');
@@ -154,10 +154,10 @@ class GlobalGpsService extends ChangeNotifier {
         _gpsSubscription = nativeGpsService.locationStream.listen(
           _handleLocationUpdate,
           onError: (error) {
-            appLogger.w('Error en stream GPS', error);
+            appLogger.w('Error en stream GPS');
             // Actualizar estado de salud cuando hay errores
             _healthStatus = GpsHealthStatus.degraded;
-            _errorMessage = 'Error en stream GPS: $error';
+            _errorMessage = 'Error en stream GPS';
             notifyListeners();
             // No establecer error permanente, solo loguear
             // El stream puede recuperarse automáticamente
@@ -176,9 +176,9 @@ class GlobalGpsService extends ChangeNotifier {
       } else {
         _setError('No se pudo iniciar GPS');
       }
-    } catch (e) {
-      appLogger.e('Error al iniciar GPS', e);
-      _setError('Error al inicializar GPS: $e');
+    } catch (_) {
+      appLogger.e('Error al iniciar GPS');
+      _setError('Error al inicializar GPS');
     }
 
     _isLoadingLocation = false;
@@ -353,7 +353,7 @@ class GlobalGpsService extends ChangeNotifier {
         appLogger.w('GPS no responde correctamente, puede requerir reinicio manual');
       }
     } catch (e) {
-      appLogger.e('Error al intentar recuperar GPS', e);
+      appLogger.e('Error al intentar recuperar GPS');
     }
   }
 

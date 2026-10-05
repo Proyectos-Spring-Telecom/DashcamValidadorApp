@@ -38,7 +38,7 @@ class MeterFareService extends ChangeNotifier {
     if (location != null && location.isValid) {
       lat = location.lat;
       lon = location.lon;
-      appLogger.d('📍 Coordenadas iniciales desde globalGpsService: lat=$lat, lon=$lon');
+      appLogger.d('📍 Coordenadas iniciales desde globalGpsService');
     } else {
       appLogger.d('No hay ubicación en globalGpsService, obteniendo ubicación actual...');
       try {
@@ -50,17 +50,17 @@ class MeterFareService extends ChangeNotifier {
         if (fallback != null && fallback.isValid) {
           lat = fallback.lat;
           lon = fallback.lon;
-          appLogger.d('📍 Coordenadas iniciales desde getCurrentLocation: lat=$lat, lon=$lon');
+          appLogger.d('📍 Coordenadas iniciales desde getCurrentLocation');
         }
       } catch (e) {
-        appLogger.w('⚠️ Error al obtener ubicación GPS inicial: $e');
+        appLogger.w('⚠️ Error al obtener ubicación GPS inicial');
       }
     }
 
     if (lat == 0.0 && lon == 0.0) {
       appLogger.w('⚠️ No se pudo obtener ubicación GPS para iniciar el viaje, usando 0.0, 0.0');
     } else {
-      appLogger.i('✅ Coordenadas iniciales obtenidas: lat=$lat, lon=$lon');
+      appLogger.i('✅ Coordenadas iniciales obtenidas');
     }
 
     // Crear transacción de débito en el backend (inicio de viaje)
@@ -113,7 +113,7 @@ class MeterFareService extends ChangeNotifier {
     if (!globalGpsService.isActive && !globalGpsService.isPersistent) {
       appLogger.w('GPS no está activo, activando modo persistente...');
       globalGpsService.startPersistent().catchError((e) {
-        appLogger.e('Error al activar GPS: $e');
+        appLogger.e('Error al activar GPS');
       });
     }
 
@@ -203,7 +203,7 @@ class MeterFareService extends ChangeNotifier {
     if (location != null && location.isValid) {
       lat = location.lat;
       lon = location.lon;
-      appLogger.d('📍 Coordenadas finales desde globalGpsService: lat=$lat, lon=$lon');
+      appLogger.d('📍 Coordenadas finales desde globalGpsService');
     } else {
       appLogger.d('No hay ubicación en globalGpsService, obteniendo ubicación actual...');
       try {
@@ -215,10 +215,10 @@ class MeterFareService extends ChangeNotifier {
         if (fallback != null && fallback.isValid) {
           lat = fallback.lat;
           lon = fallback.lon;
-          appLogger.d('📍 Coordenadas finales desde getCurrentLocation: lat=$lat, lon=$lon');
+          appLogger.d('📍 Coordenadas finales desde getCurrentLocation');
         }
       } catch (e) {
-        appLogger.w('⚠️ Error al obtener ubicación GPS final: $e');
+        appLogger.w('⚠️ Error al obtener ubicación GPS final');
       }
     }
 
@@ -227,7 +227,7 @@ class MeterFareService extends ChangeNotifier {
       lat = trip.startLat;
       lon = trip.startLon;
     } else {
-      appLogger.i('✅ Coordenadas finales obtenidas: lat=$lat, lon=$lon');
+      appLogger.i('✅ Coordenadas finales obtenidas');
     }
 
     // Finalizar el viaje (la distancia ya está acumulada durante el trayecto)

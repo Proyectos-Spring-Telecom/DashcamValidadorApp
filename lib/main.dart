@@ -54,7 +54,7 @@ Future<void> main() async {
     await auth.initialize();
     appLogger.i('Servicios inicializados correctamente');
   } catch (e, stackTrace) {
-    appLogger.f('Error crítico al inicializar servicios', e, stackTrace);
+    appLogger.f('Error crítico al inicializar servicios');
     // En producción, podrías mostrar una pantalla de error o enviar el error a un servicio
     // Por ahora, continuamos para que la app intente iniciar
   }
@@ -79,7 +79,7 @@ Future<void> main() async {
       );
     }
   } catch (e) {
-    appLogger.w('No se pudieron solicitar permisos de ubicación: $e');
+    appLogger.w('No se pudieron solicitar permisos de ubicación');
   }
 
   runApp(const DashCamApp());
