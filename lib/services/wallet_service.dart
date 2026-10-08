@@ -47,7 +47,8 @@ class WalletService {
   final HttpService _httpService = httpService;
   final ErrorHandlerService _errorHandler = errorHandler;
   final StorageService _storage = StorageService();
-  final Map<String, String> _pendingIdempotencyKeys = {};
+  static const Duration _vigenciaClave = Duration(minutes: 10);
+  Map<String, Map<String, dynamic>>? _clavesPendientes;
 
   String _newUuidV4() {
     final random = Random.secure();
@@ -65,13 +66,45 @@ class WalletService {
     return true;
   }
 
-  /// Misma llave mientras el tap no termine (reintento). Nuevo tap = nueva llave.
-  String _claveIdempotencia(String fingerprint) {
-    return _pendingIdempotencyKeys.putIfAbsent(fingerprint, _newUuidV4);
+  Future<Map<String, Map<String, dynamic>>> _cargarClaves() async {
+    final enMemoria = _clavesPendientes;
+    if (enMemoria != null) return enMemoria;
+    final guardadas = await _storage.getClavesPendientes();
+    final limite =
+        DateTime.now().subtract(_vigenciaClave).millisecondsSinceEpoch;
+    guardadas.removeWhere((_, v) => ((v['ts'] as num?) ?? 0) < limite);
+    _clavesPendientes = guardadas;
+    return guardadas;
   }
 
-  void _liberarClave(String fingerprint) {
-    _pendingIdempotencyKeys.remove(fingerprint);
+  /// H-10: misma llave mientras la operación no tenga respuesta del servidor,
+  /// aunque la app se cierre o se caiga (antes vivía solo en memoria y un
+  /// reinicio a media operación podía cobrar dos veces).
+  Future<String> _claveIdempotencia(String fingerprint) async {
+    final claves = await _cargarClaves();
+    final existente = claves[fingerprint]?['clave'] as String?;
+    if (existente != null) return existente;
+    final nueva = _newUuidV4();
+    claves[fingerprint] = {
+      'clave': nueva,
+      'ts': DateTime.now().millisecondsSinceEpoch,
+    };
+    await _storage.saveClavesPendientes(claves);
+    return nueva;
+  }
+
+  /// Se libera cuando el servidor contestó (éxito o rechazo de negocio); solo
+  /// quedan las de resultado desconocido (sin respuesta o 5xx).
+  Future<void> _liberarClave(String fingerprint) async {
+    final claves = await _cargarClaves();
+    if (claves.remove(fingerprint) != null) {
+      await _storage.saveClavesPendientes(claves);
+    }
+  }
+
+  bool _respuestaDefinitiva(DioException e) {
+    final status = e.response?.statusCode;
+    return status != null && status < 500;
   }
 
   /// Recarga el monedero vía API (endpointRechargeWallet).
@@ -82,6 +115,7 @@ class WalletService {
     required double longitudInicial,
     required String numeroSerieMonedero,
   }) async {
+    String recargaFingerprint = '';
     try {
       if (!_coordenadaUsable(latitudInicial, longitudInicial)) {
         appLogger.w('GPS no disponible o inválido en recarga');
@@ -110,7 +144,8 @@ class WalletService {
 
       final montoValue = (monto % 1 == 0) ? monto.toInt() : monto;
       final fingerprint = 'recarga|$numeroSerieMonedero|$montoValue';
-      final claveIdempotencia = _claveIdempotencia(fingerprint);
+      recargaFingerprint = fingerprint;
+      final claveIdempotencia = await _claveIdempotencia(fingerprint);
 
       final body = {
         'idTipoTransaccion': 1,
@@ -130,8 +165,8 @@ class WalletService {
         data: body,
       );
 
+      await _liberarClave(fingerprint);
       if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-        _liberarClave(fingerprint);
         appLogger.i('✅ Recarga de monedero realizada correctamente');
         return RechargeWalletResult(success: true);
       }
@@ -141,6 +176,7 @@ class WalletService {
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
       appLogger.e('Error al recargar monedero: $msg');
+      if (_respuestaDefinitiva(e)) await _liberarClave(recargaFingerprint);
       if (e.response != null) {
         appLogger.e('El servidor rechazó la operación');
       }
@@ -204,6 +240,7 @@ class WalletService {
     bool esMultiple = false,
     int cantidadPasajes = 0,
   }) async {
+    String debitoFingerprint = '';
     try {
       if (!_coordenadaUsable(latitud, longitud)) {
         appLogger.w('GPS no disponible o inválido en débito');
@@ -231,7 +268,8 @@ class WalletService {
       }
 
       final fingerprint = 'debito|$idCard|$idViaje|$esQR|$esMultiple|$cantidadPasajes';
-      final claveIdempotencia = _claveIdempotencia(fingerprint);
+      debitoFingerprint = fingerprint;
+      final claveIdempotencia = await _claveIdempotencia(fingerprint);
 
       final body = {
         'latitud': latRounded,
@@ -253,14 +291,13 @@ class WalletService {
         data: body,
       );
 
+      await _liberarClave(fingerprint);
       final parsed = _parseDebitResponse(response.data, response.statusCode);
       if (parsed != null) {
-        if (parsed.success) _liberarClave(fingerprint);
         return parsed;
       }
 
       if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-        _liberarClave(fingerprint);
         appLogger.i('✅ Débito viaje exitoso');
         appLogger.d('← HTTP ${response.statusCode} débito OK');
         return DebitTripTransactionResult(success: true);
@@ -276,6 +313,7 @@ class WalletService {
     } on DioException catch (e) {
       final msg = _errorHandler.handleError(e);
       appLogger.e('Error débito viaje');
+      if (_respuestaDefinitiva(e)) await _liberarClave(debitoFingerprint);
       if (e.response != null) {
         final parsed = _parseDebitResponse(e.response?.data, e.response?.statusCode);
         if (parsed != null) return parsed;

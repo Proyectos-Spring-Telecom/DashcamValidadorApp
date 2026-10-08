@@ -58,7 +58,10 @@ class MeterFareService extends ChangeNotifier {
     }
 
     if (lat == 0.0 && lon == 0.0) {
-      appLogger.w('⚠️ No se pudo obtener ubicación GPS para iniciar el viaje, usando 0.0, 0.0');
+      // H-22: sin GPS no se inicia; con (0,0) la tarifa por distancia se calculaba
+      // desde el golfo de Guinea.
+      appLogger.w('⚠️ Sin ubicación GPS válida: no se inicia el viaje');
+      return false;
     } else {
       appLogger.i('✅ Coordenadas iniciales obtenidas');
     }

@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# V2-17: artefactos de build de Android
+/android/build/
+/android/app/build/

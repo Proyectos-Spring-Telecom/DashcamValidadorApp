@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Servicio para almacenamiento seguro de datos sensibles
@@ -21,6 +22,7 @@ class StorageService {
   static const String _keyNumeroSerieValidador = 'numero_serie_validador';
   static const String _keyTurnId = 'turn_id';
   static const String _keyTripId = 'trip_id';
+  static const String _keyClavesPendientes = 'claves_idempotencia_pendientes';
 
   /// Guarda el token de autenticación
   Future<void> saveToken(String token) async {
@@ -185,6 +187,27 @@ class StorageService {
       _storage.delete(key: _keyTurnId),
       _storage.delete(key: _keyTripId),
     ]);
+  }
+
+  /// Claves de idempotencia de cobros/recargas cuya respuesta no llegó (H-10).
+  /// fingerprint -> {clave, ts}. Sobreviven a un cierre o caída de la app.
+  Future<Map<String, Map<String, dynamic>>> getClavesPendientes() async {
+    final raw = await _storage.read(key: _keyClavesPendientes);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map(
+        (k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)),
+      );
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveClavesPendientes(
+    Map<String, Map<String, dynamic>> claves,
+  ) async {
+    await _storage.write(key: _keyClavesPendientes, value: jsonEncode(claves));
   }
 }
 

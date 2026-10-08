@@ -7,11 +7,29 @@ class AppConfig {
   // Debug → apidev. Release → api. Override: --dart-define=API_BASE_URL=...
   static String get apiBaseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
-    if (fromEnv.isNotEmpty) return fromEnv;
+    if (fromEnv.isNotEmpty) {
+      // V2-19: en release el override solo puede ser HTTPS hacia el dominio
+      // propio; un APK compilado contra otro host mandaría tokens y cobros allí.
+      if (kReleaseMode) {
+        final uri = Uri.tryParse(fromEnv);
+        final valido = uri != null &&
+            uri.scheme == 'https' &&
+            (uri.host == apiHostPermitido ||
+                uri.host.endsWith('.$apiHostPermitido'));
+        if (!valido) {
+          throw StateError(
+            'API_BASE_URL inválida para release: debe ser https://$apiHostPermitido/...',
+          );
+        }
+      }
+      return fromEnv;
+    }
     return kReleaseMode
         ? 'https://dashcampay.com/api'
         : 'https://dashcampay.com/apidev';
   }
+
+  static const String apiHostPermitido = 'dashcampay.com';
   static const String localDeviceApiUrl = 'http://127.0.0.1:8080';
   static const int localDeviceApiPort = 8080;
 

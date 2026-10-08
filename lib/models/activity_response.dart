@@ -49,7 +49,7 @@ class ActivityData {
                   return Viaje.fromJson(v);
                 } catch (e) {
                   if (kDebugMode) {
-                    print('Error al parsear viaje');
+                    debugPrint('Error al parsear viaje');
                   }
                   rethrow;
                 }
@@ -57,7 +57,7 @@ class ActivityData {
               .toList();
         } catch (e) {
           if (kDebugMode) {
-            print('Error al parsear lista de viajes');
+            debugPrint('Error al parsear lista de viajes');
           }
           rethrow;
         }
@@ -73,7 +73,7 @@ class ActivityData {
           ultimaPosicion = UltimaPosicion.fromJson(ultimaPosicionData);
         } catch (e) {
           if (kDebugMode) {
-            print('Error al parsear ultimaPosicion');
+            debugPrint('Error al parsear ultimaPosicion');
           }
           rethrow;
         }
