@@ -418,7 +418,8 @@ class _TripDebitSectionState extends State<_TripDebitSection> {
       await _presentDebitModal(
         onDebit: () async => DebitTripTransactionResult(
           success: false,
-          errorMessage: 'QR inválido: falta número de serie del monedero',
+          errorMessage:
+              payload.error ?? 'QR inválido: falta número de serie del monedero',
         ),
       );
       return;

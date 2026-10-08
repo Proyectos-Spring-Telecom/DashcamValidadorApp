@@ -64,3 +64,24 @@ android {
 flutter {
     source = "../.."
 }
+
+// H-13: sin keystore propio no se genera un APK/AAB de release (antes salía sin
+// firmar o con la firma de debug). Solo afecta a tareas de release, no a debug.
+gradle.taskGraph.whenReady {
+    val pideRelease = allTasks.any { t ->
+        (t.name.startsWith("assemble") || t.name.startsWith("bundle") || t.name.startsWith("package")) &&
+            t.name.endsWith("Release")
+    }
+    val faltaKeystore = listOf(
+        "DASHCAM_UPLOAD_STORE_FILE",
+        "DASHCAM_UPLOAD_STORE_PASSWORD",
+        "DASHCAM_UPLOAD_KEY_ALIAS",
+        "DASHCAM_UPLOAD_KEY_PASSWORD",
+    ).any { System.getenv(it).isNullOrBlank() }
+    if (pideRelease && faltaKeystore) {
+        throw GradleException(
+            "Build de release sin keystore: define DASHCAM_UPLOAD_STORE_FILE, " +
+                "DASHCAM_UPLOAD_STORE_PASSWORD, DASHCAM_UPLOAD_KEY_ALIAS y DASHCAM_UPLOAD_KEY_PASSWORD.",
+        )
+    }
+}

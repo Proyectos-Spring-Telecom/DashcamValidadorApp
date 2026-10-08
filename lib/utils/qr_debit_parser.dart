@@ -7,13 +7,17 @@ class QrDebitPayload {
   final bool esMultiple;
   final int cantidadPasajes;
 
-  bool get isValid => numeroSerieMonedero.isNotEmpty;
+  /// Motivo de rechazo del QR, si lo hay.
+  final String? error;
+
+  bool get isValid => error == null && numeroSerieMonedero.isNotEmpty;
 
   const QrDebitPayload({
     required this.numeroSerieMonedero,
     this.idCard = '',
     this.esMultiple = false,
     this.cantidadPasajes = 1,
+    this.error,
   });
 }
 
@@ -76,7 +80,12 @@ QrDebitPayload parseQrDebitPayload(String raw) {
         }
 
         if (cant > 50) {
-          cant = 50;
+          // Antes se recortaba a 50 en silencio: el pasajero pedía N y se cobraba otra cosa.
+          return QrDebitPayload(
+            numeroSerieMonedero: serieStr,
+            idCard: idCard,
+            error: 'QR inválido: máximo 50 pasajes por cobro.',
+          );
         }
         if (cant <= 0) {
           cant = esMultiple ? 2 : 1;

@@ -281,8 +281,22 @@ class RetryInterceptor extends Interceptor {
     handler.next(err);
   }
 
+  /// H-10: un POST/PATCH sin claveIdempotencia no se reintenta solo. Si el
+  /// servidor ya lo procesó (timeout de respuesta), reintentarlo duplica el
+  /// turno, el viaje, la posición o el cobro.
+  bool _esReintentable(RequestOptions options) {
+    final metodo = options.method.toUpperCase();
+    if (const {'GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'}.contains(metodo)) {
+      return true;
+    }
+    final data = options.data;
+    return data is Map &&
+        (data['claveIdempotencia']?.toString().isNotEmpty ?? false);
+  }
+
   bool _shouldRetry(DioException error) {
     if (error.response?.statusCode == 401) return false;
+    if (!_esReintentable(error.requestOptions)) return false;
     return error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
         error.type == DioExceptionType.connectionError ||

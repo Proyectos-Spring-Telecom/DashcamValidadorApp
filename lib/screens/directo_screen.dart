@@ -207,7 +207,8 @@ class _DirectoScreenState extends State<DirectoScreen> {
     if (!payload.isValid) {
       setState(() {
         _isProcessing = false;
-        _statusMessage = 'QR inválido: falta número de serie del monedero.';
+        _statusMessage =
+            payload.error ?? 'QR inválido: falta número de serie del monedero.';
       });
       return;
     }
