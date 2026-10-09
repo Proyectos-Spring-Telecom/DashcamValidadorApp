@@ -2,10 +2,10 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import '../services/http_service.dart';
 import '../services/error_handler_service.dart';
-import '../services/device_service.dart';
 import '../services/device_api_service.dart';
 import '../services/storage_service.dart';
 import '../config/app_config.dart';
+import '../app/auth.dart';
 import '../utils/logger.dart';
 import '../utils/nfc_result_codes.dart';
 
@@ -374,84 +374,37 @@ class WalletService {
     }
   }
 
-  /// Inicia una transacción de débito para tarifa punto a punto o por metro
-  /// (controlTransaccion: 1) - Primera lectura de tarjeta
-  /// Retorna el ID de la transacción creada o null si hay error
+  /// Primer tap de tarifa dinámica / por metro. Unificado al débito que el
+  /// backend acepta (debitTripTransaction): una sola ruta POST con
+  /// claveIdempotencia, idViaje (de la sesión) y numeroSerieValidador. El
+  /// servidor decide apertura/cierre (D-15) y calcula la tarifa; `amount` local
+  /// ya no se envía (queda solo para mostrar en pantalla).
+  /// Devuelve un marcador no nulo si abrió, o null si falló.
   Future<int?> startTripDebit({
     required double amount,
     required double lat,
     required double lon,
     required String numeroSerieMonedero,
   }) async {
-    try {
-      // Validar que no sean NaN o Infinite
-      if (lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite)');
-        return null;
-      }
-
-      final deviceId = await DeviceService.getDeviceId();
-      
-      // Formatear fechaHora en formato ISO 8601 UTC sin milisegundos
-      final fechaHoraUtc = DateTime.now().toUtc();
-      final fechaHora = '${fechaHoraUtc.year}-${fechaHoraUtc.month.toString().padLeft(2, '0')}-${fechaHoraUtc.day.toString().padLeft(2, '0')}T${fechaHoraUtc.hour.toString().padLeft(2, '0')}:${fechaHoraUtc.minute.toString().padLeft(2, '0')}:${fechaHoraUtc.second.toString().padLeft(2, '0')}Z';
-      
-      // Redondear coordenadas a 6 decimales
-      final latRounded = double.parse(lat.toStringAsFixed(6));
-      final lonRounded = double.parse(lon.toStringAsFixed(6));
-      
-      // Asegurar que los valores numéricos sean números (no strings)
-      final montoValue = (amount % 1 == 0) ? amount.toInt() : amount.toDouble();
-      
-      final body = {
-        'controlTransaccion': 1,
-        'monto': montoValue,
-        'latitudInicial': latRounded,
-        'longitudInicial': lonRounded,
-        'fechaHoraInicio': fechaHora,
-        'numeroSerieMonedero': numeroSerieMonedero,
-        'numeroSerieDispositivo': deviceId,
-      };
-
-      appLogger.i('Iniciando transacción de débito');
-
-      final response = await _httpService.dio.post(
-        AppConfig.endpointDebitTransaction,
-        data: body,
-      );
-
-      if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-        // Parsear la respuesta
-        final responseData = response.data;
-        if (responseData is Map<String, dynamic> && responseData['data'] != null) {
-          final transactionData = DebitTransactionResponse.fromJson(responseData['data'] as Map<String, dynamic>);
-          appLogger.i('✅ Transacción de inicio creada exitosamente. ID: ${transactionData.id}');
-          return transactionData.id;
-        }
-        appLogger.w('Respuesta inesperada: no contiene campo "data"');
-        return null;
-      }
-      appLogger.w('Respuesta inesperada al iniciar transacción: ${response.statusCode}');
-      return null;
-    } on DioException catch (e) {
-      final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al iniciar transacción de débito: $msg');
-      
-      // Log adicional del error del servidor si está disponible
-      if (e.response != null) {
-        appLogger.e('El servidor rechazó la operación');
-      }
-      
-      return null;
-    } catch (e) {
-      appLogger.e('Error inesperado al iniciar transacción de débito');
+    final idViaje = int.tryParse(auth.idViaje ?? '');
+    if (idViaje == null || idViaje <= 0) {
+      appLogger.e('No hay viaje activo en la sesión para iniciar el débito');
       return null;
     }
+    final result = await debitTripTransaction(
+      idCard: numeroSerieMonedero,
+      latitud: lat,
+      longitud: lon,
+      idViaje: idViaje,
+      numeroSerieMonedero: numeroSerieMonedero,
+    );
+    // El cierre se resuelve por monedero en el servidor; no hay id que propagar.
+    return result.success ? 1 : null;
   }
 
-  /// Finaliza una transacción de débito para tarifa punto a punto o por metro
-  /// (controlTransaccion: 0) - Segunda lectura de tarjeta (cierre de viaje)
-  /// Requiere el ID de la transacción creada en startTripDebit
+  /// Segundo tap: cierra la transacción ABIERTA en el servidor (D-15) con el
+  /// mismo débito unificado. idTransaccionDebito/amount ya no se envían; el
+  /// servidor localiza la ABIERTA por monedero y cobra la tarifa que calcula.
   Future<bool> endTripDebit({
     required int idTransaccionDebito,
     required double amount,
@@ -459,64 +412,19 @@ class WalletService {
     required double lon,
     required String numeroSerieMonedero,
   }) async {
-    try {
-      // Validar que no sean NaN o Infinite
-      if (lat.isNaN || lon.isNaN || lat.isInfinite || lon.isInfinite) {
-        appLogger.e('Coordenadas GPS inválidas (NaN o Infinite)');
-        return false;
-      }
-
-      final deviceId = await DeviceService.getDeviceId();
-      
-      // Formatear fechaHora en formato ISO 8601 UTC sin milisegundos
-      final fechaHoraUtc = DateTime.now().toUtc();
-      final fechaHora = '${fechaHoraUtc.year}-${fechaHoraUtc.month.toString().padLeft(2, '0')}-${fechaHoraUtc.day.toString().padLeft(2, '0')}T${fechaHoraUtc.hour.toString().padLeft(2, '0')}:${fechaHoraUtc.minute.toString().padLeft(2, '0')}:${fechaHoraUtc.second.toString().padLeft(2, '0')}Z';
-      
-      // Redondear coordenadas a 6 decimales
-      final latRounded = double.parse(lat.toStringAsFixed(6));
-      final lonRounded = double.parse(lon.toStringAsFixed(6));
-      
-      // Asegurar que los valores numéricos sean números (no strings)
-      final montoValue = (amount % 1 == 0) ? amount.toInt() : amount.toDouble();
-      
-      final body = {
-        'idTransaccionDebito': idTransaccionDebito,
-        'monto': montoValue,
-        'controlTransaccion': 0,
-        'latitudFinal': latRounded,
-        'longitudFinal': lonRounded,
-        'fechaHoraFinal': fechaHora,
-        'numeroSerieMonedero': numeroSerieMonedero,
-        'numeroSerieDispositivo': deviceId,
-      };
-
-      appLogger.i('Finalizando transacción de débito');
-
-      final response = await _httpService.dio.patch(
-        AppConfig.endpointDebitTransactionUpdate,
-        data: body,
-      );
-
-      if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-        appLogger.i('✅ Transacción de cierre completada exitosamente');
-        return true;
-      }
-      appLogger.w('Respuesta inesperada al finalizar transacción: ${response.statusCode}');
-      return false;
-    } on DioException catch (e) {
-      final msg = _errorHandler.handleError(e);
-      appLogger.e('Error al finalizar transacción de débito: $msg');
-      
-      // Log adicional del error del servidor si está disponible
-      if (e.response != null) {
-        appLogger.e('El servidor rechazó la operación');
-      }
-      
-      return false;
-    } catch (e) {
-      appLogger.e('Error inesperado al finalizar transacción de débito');
+    final idViaje = int.tryParse(auth.idViaje ?? '');
+    if (idViaje == null || idViaje <= 0) {
+      appLogger.e('No hay viaje activo en la sesión para cerrar el débito');
       return false;
     }
+    final result = await debitTripTransaction(
+      idCard: numeroSerieMonedero,
+      latitud: lat,
+      longitud: lon,
+      idViaje: idViaje,
+      numeroSerieMonedero: numeroSerieMonedero,
+    );
+    return result.success;
   }
 }
 
